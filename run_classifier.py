@@ -23,12 +23,15 @@ import logging
 import os
 import random
 import sys
+import datetime
 
 import numpy as np
 import torch
 from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
                               TensorDataset)
 from torch.utils.data.distributed import DistributedSampler
+from torch.utils.tensorboard import SummaryWriter
+
 from tqdm import tqdm, trange
 
 from pytorch_pretrained_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
@@ -449,6 +452,10 @@ def main():
     nb_tr_steps = 0
     tr_loss = 0
     if args.do_train:
+        ts = datetime.datetime.now().isoformat()
+        writer_dir = os.path.join(args.output_dir, 'runs', f'run_{ts}')
+        writer = SummaryWriter(writer_dir)
+
         train_features = convert_examples_to_features(
             train_examples, label_list, args.max_seq_length, tokenizer)
         logger.info("***** Running training *****")
@@ -467,6 +474,7 @@ def main():
         train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=args.train_batch_size)
 
         model.train()
+        cnt = 0
         for _ in trange(int(args.num_train_epochs), desc="Epoch"):
             tr_loss = 0
             nb_tr_examples, nb_tr_steps, exp_average_loss = 0, 0, None
@@ -494,6 +502,11 @@ def main():
                 nb_tr_examples += input_ids.size(0)
                 nb_tr_steps += 1
                 tqdm_bar.desc = "Training loss: {:.2e} lr: {:.2e}".format(exp_average_loss, optimizer.get_lr()[0])
+                if cnt % 100 == 99:
+                    writer.add_scalar('training loss', exp_average_loss, cnt)
+                    writer.add_scalar('learning rate', optimizer.get_lr()[0], cnt)
+                cnt += 1
+
                 if (step + 1) % args.gradient_accumulation_steps == 0:
                     if args.fp16:
                         # modify learning rate with special warm up BERT uses
