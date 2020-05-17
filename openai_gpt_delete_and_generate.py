@@ -26,9 +26,12 @@ import logging
 from tqdm import tqdm, trange
 import time
 import numpy as np
+import datetime
+
 import torch
 from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
                               TensorDataset)
+from torch.utils.tensorboard import SummaryWriter
 
 from pytorch_pretrained_bert import OpenAIGPTLMHeadModel, OpenAIGPTTokenizer, OpenAIAdam, cached_path
 
@@ -195,8 +198,13 @@ def main():
                            t_total=num_train_optimization_steps)
 
     if args.do_train:
+        ts = datetime.datetime.now().isoformat()
+        writer_dir = os.path.join(args.output_dir, 'runs', f'run_{ts}')
+        writer = SummaryWriter(writer_dir)
+
         nb_tr_steps, tr_loss, exp_average_loss = 0, 0, None
         model.train()
+        cnt = 0
         for epoch in trange(int(args.num_train_epochs), desc="Epoch"):
             tr_loss = 0
             nb_tr_steps = 0
@@ -218,6 +226,10 @@ def main():
                 exp_average_loss = tmp_loss if exp_average_loss is None else 0.7 * exp_average_loss + 0.3 * tmp_loss
                 nb_tr_steps += 1
                 tqdm_bar.desc = "Training loss: {:.2e} lr: {:.2e}".format(exp_average_loss, optimizer.get_lr()[0])
+                if cnt % 100 == 99:
+                    writer.add_scalar('training_loss', exp_average_loss, cnt)
+                    writer.add_scalar('learning_rate', optimizer.get_lr()[0], cnt)
+                cnt += 1
 
             model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
             output_model_file = os.path.join(args.output_dir, "pytorch_model_zero_grad_{}.bin".format(epoch+1))
