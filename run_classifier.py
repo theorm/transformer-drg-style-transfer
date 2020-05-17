@@ -503,8 +503,8 @@ def main():
                 nb_tr_steps += 1
                 tqdm_bar.desc = "Training loss: {:.2e} lr: {:.2e}".format(exp_average_loss, optimizer.get_lr()[0])
                 if cnt % 100 == 99:
-                    writer.add_scalar('training loss', exp_average_loss, cnt)
-                    writer.add_scalar('learning rate', optimizer.get_lr()[0], cnt)
+                    writer.add_scalar('training_loss', exp_average_loss, cnt)
+                    writer.add_scalar('learning_rate', optimizer.get_lr()[0], cnt)
                 cnt += 1
 
                 if (step + 1) % args.gradient_accumulation_steps == 0:
